@@ -2,19 +2,60 @@
 <html lang="en">
 
 <head>
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script src="static/vis.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Mukta">
+
     <meta charset="utf-8">
-    <title>Basic network graph in d3.js</title>
+    <title>Github Visualiser</title>
     <style>
         body {
-            background-color: #fffff5;
+            background-color: #fffff7;
+            height: 100%;
         }
 
         text {
             font-family: 'Mukta', serif;
         }
 
-        .node_label {
+        @font-face {
+            font-family: "Garamond";
+            src: url("static/font/Garamond.ttf") format("truetype");
+        }
+
+        .page_title {
+            font-family: "Garamond";
+            font-size: 44px;
+            text-align: center;
+            text-shadow: 1px 1px grey;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            text-align: center;
+
+        }
+
+
+        .readme_title {
+            font-family: "Garamond";
+            font-size: 30px;
+            text-align: left;
+            text-shadow: 1px 1px grey;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .node_label,
+        .tick {
             font-family: 'Mukta', serif;
             font-size: 11px;
             -webkit-touch-callout: none;
@@ -25,12 +66,53 @@
             user-select: none;
         }
 
+        .commits_line {
+            fill: none;
+            stroke: grey;
+            stroke-width: 1.5px;
+        }
+
+        .overlay {
+            fill: none;
+            pointer-events: all;
+        }
+
+        .focus circle {
+            fill: grey;
+        }
+
+        .tooltip {
+            width: 94px;
+            padding: 4px 10px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            position: absolute;
+            background-color: white;
+            font-size: 14px;
+            pointer-events: none;
+            -webkit-transition: all 0.25s;
+            -moz-transition: all 0.25s;
+            -ms-transition: all 0.25s;
+            -o-transition: all 0.25s;
+            transition: all 0.25s;
+        }
+
+        .tooltip div {
+            margin: 3px 0;
+        }
+
+        .tooltip-date,
+        .tooltip-commits {
+            font-weight: bold;
+        }
+
         button {
             font-family: 'Mukta', serif;
             font-size: 15px;
         }
 
-        h {
+        .example {
             font-family: 'Mukta', serif;
             font-size: 18px;
         }
@@ -47,39 +129,48 @@
             display: none;
         }
 
-        .y_axis .tick text{
+        .y_axis .tick text {
             font-family: 'Mukta', serif;
             font-size: 15px;
         }
+
         .network_graph {
-            background-color: #fffff5;
+            background-color: #fffff7;
             width: 100%;
+            border: 1px solid black;
         }
 
         .zoom_rect {
-            width :100%;
+            width: 100%;
         }
 
         .repo_query {
+            padding-top: 15px;
             padding-left: 20px;
             padding-right: 20px;
             height: 50px;
-            width: 800px;
+            width: 840px;
+            border-top: 1px solid black;
             border-bottom: 1px solid black;
             margin: auto;
         }
-        .dag{
-            width :80%;
+
+        .dag {
+            width: 80%;
             margin-left: 10%;
             margin-right: 10%;
         }
-        
-        .commit_count{
-            width : 50%;
-            margin-left: 10%;
+
+        .commit_count {
+            height: 180px;
+            margin-left: 6%;
+            float: left;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
+
         .submit_form {
-            padding-left: 33%;
+            padding-left: 28%;
             width: 33%;
             float: left;
         }
@@ -92,288 +183,100 @@
             font-size: 18px;
         }
 
-        button{
+        button {
             height: 100%;
             font-family: 'Mukta', serif;
             font-size: 14px;
         }
+
         .bar_chart {
             padding-left: 30px;
         }
 
-        
+        .pie_chart {
+            float: right;
+            width: 450px;
+            margin-right: 6%;
+        }
+
+        .middle {
+            height: 180px;
+            width: 80%;
+            margin-left: 10%;
+            margin-right: 10%;
+            margin-top: 20px;
+        }
+
+
+        .line_chart .domain {
+            display: none;
+        }
+
+        .line_chart line {
+            display: none;
+        }
+
+        @namespace svg url(http://www.w3.org/2000/svg);
+        /* Necessary to select only SVG <a> elements, and not also HTML’s.
+   See warning below */
+
+        svg|a:link,
+        svg|a:visited {
+            cursor: pointer;
+        }
+
+        svg|a text,
+        text svg|a {
+            fill: blue;
+            /* Even for text, SVG uses fill over color */
+            text-decoration: underline;
+        }
+
+        svg|a:hover,
+        svg|a:active {
+            outline: dotted 1px blue;
+        }
     </style>
 </head>
 
 
 
-<body>
+<body onload="typeWriter()">
+    <h1 class="page_title" id="page_title" display="inline-block">
+
+    </h1>
     <section class="repo_query">
         <div class="submit_form">
             <input type="text" name="name_and_repo" id="usrin">
-            <button onclick="renderData()" )>Submit</button>
+            <button onclick="renderData()" >Submit</button>
         </div>
-        <div style="width:33%;float:right;">
-            <h style="padding-left: 5px; float:left;">e.g. torvalds/linux</h>
+        <div id="example_holder" style="width:38%;float:right;">
+            <h id="example" class="example" style="padding-left: 5px; float:left;">e.g. "torvalds" or "esjmb/github-get"</h>
         </div>
     </section>
-    <section class="data_display" style="padding-top: 20px; padding-bottom: 20px">
-        <div class="container">
-            <div class="row">
-
-            </div>
-
-
-            <!-- Load d3.js -->
-            <script src="https://d3js.org/d3.v4.js"></script>
-
+    <section id="data_display" class="data_display" style="padding-top: 20px; padding-bottom: 20px">
+        <div id="container" class="container">
             <div class="dag" id="git_commits_dag"></div>
-            <div class= "commit_count" id="git_commits_bar_chart"></div>
-
-            <script>
-                function renderData() {
-                    var user_input = document.getElementById("usrin");
-                    var entry = { "name_and_repo": user_input.value };
-
-                    fetch("/func/", {
-                        method: 'POST',
-                        headers: new Headers({
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        }),
-                        body: JSON.stringify(entry)
-                    }).then(function (response) {
-                        renderDAG();
-                        renderBarChart();
-                    });
-                }
-
-                function addMetadataBox(){
-
-                }
-
-                function renderDAG() {
-                    d3.select("#git_commits_dag").selectAll("*").remove();
-
-                    var margin = { top: 10, right: 30, bottom: 30, left: 40 },
-                        width = 900,
-                        height = 400;
-
-
-                    var time = Date.now();
-                    var json_file = "/data/network_graph.json?u=" + time;
-                    d3.json(json_file, function (data) {
-                        console.log(data)
-
-                        var commit_count = "Commits: " +  data.nodes.length
-
-                        var svg = d3.select("#git_commits_dag")
-                            .append("svg")
-                            .attr("class", "network_graph")
-                            .attr("height", height)
-                            .append("g");
-
-                        var commit_count_header = svg.append("text")
-                            .attr("class", "commit_count_dag")
-                            .text(commit_count)
-
-                        var zoomRect = svg.append('rect')
-                            .attr("class", "zoom_rect")
-                            .attr("height", height)
-                            .attr("fill", "#fffff5");
-
-                        var nodes_data = data.nodes;
-                        var links_data = data.links;
-
-                        var simulation = d3.forceSimulation()
-                            .nodes(nodes_data);
-
-                        var link_force = d3.forceLink(links_data)
-                            .id(function (d) { return d.id; });
-
-                        var charge_force = d3.forceManyBody();
-
-                        var center_force = d3.forceCenter(width / 2, height / 2);
-
-                        simulation
-                            .force("charge_force", charge_force)
-                            .force("center_force", center_force)
-                            .force("links", link_force)
-                            ;
-
-
-                        //add tick instructions: 
-                        simulation.on("tick", tickActions);
-
-                        //add encompassing group for the zoom 
-                        var g = svg.append("g")
-                            .attr("class", "everything");
-
-                        //draw lines for the links 
-                        var link = g.append("g")
-                            .attr("class", "links")
-                            .selectAll("line")
-                            .data(links_data)
-                            .enter().append("line")
-                            .attr("stroke-width", 2)
-                            .style("stroke", "#aaa");
-
-                        var node = g.append("g")
-                            .attr("class", "nodes")
-                            .selectAll("g")
-                            .data(nodes_data)
-                            .enter()
-                            .append("g");
-
-                        var circle = node.append("circle")
-                            .attr("stroke", "#fff")
-                            .attr("stroke-width", 3)
-                            .attr("r", 8)
-                            .style("fill", "#b41f2b");
-
-
-                        var labels = node.append("text")
-                            .text(function (d) {
-                                return d.date;
-                            })
-                            .attr('x', 18)
-                            .attr('y', 3)
-                            .attr("class", "node_label");
-
-                        node.append("title")
-                            .text(function (d) { return d.metadata; });
-
-
-
-                        var drag_handler = d3.drag()
-                            .on("start", drag_start)
-                            .on("drag", drag_drag)
-                            .on("end", drag_end);
-
-                        drag_handler(node);
-                        //Zoom functions 
-                        function zoom_actions() {
-                            g.attr("transform", d3.event.transform)
-                        }
-
-                        //add zoom capabilities 
-                        var zoom_handler = d3.zoom()
-                            .scaleExtent([0.1, 2])
-                            .on("zoom", zoom_actions);
-
-                        zoom_handler(zoomRect);
-
-                        /** Functions **/
-
-
-                        //Drag functions 
-                        //d is the node 
-                        function drag_start(d) {
-                            if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-                            d.fx = d.x;
-                            d.fy = d.y;
-                        }
-
-                        //make sure you can't drag the circle outside the box
-                        function drag_drag(d) {
-                            d.fx = d3.event.x;
-                            d.fy = d3.event.y;
-                        }
-
-                        function drag_end(d) {
-                            if (!d3.event.active) simulation.alphaTarget(0);
-                            d.fx = null;
-                            d.fy = null;
-                        }
-
-
-
-                        function tickActions() {
-                            //update circle positions each tick of the simulation 
-                            node
-                                .attr("x", function (d) { return d.x; })
-                                .attr("y", function (d) { return d.y; });
-
-                            circle
-                                .attr("cx", function (d) { return d.x; })
-                                .attr("cy", function (d) { return d.y; });
-
-                            labels
-                                .attr("x", function (d) { return d.x + 10; })
-                                .attr("y", function (d) { return d.y - 5; });
-
-                            //update link positions 
-                            link
-                                .attr("x1", function (d) { return d.source.x; })
-                                .attr("y1", function (d) { return d.source.y; })
-                                .attr("x2", function (d) { return d.target.x; })
-                                .attr("y2", function (d) { return d.target.y; });
-                        }
-                    });
-
-
-                }
-                function renderBarChart() {
-                    d3.select("#git_commits_bar_chart").selectAll("*").remove();
-
-                    var time = Date.now();
-                    var json_file = "/data/bar_chart_data.json?u=" + time;
-                    d3.json(json_file, function (data) {
-                        // set the dimensions and margins of the graph
-                        var margin = { top: 20, right: 30, bottom: 40, left: 120 },
-                            width = 500 - margin.left - margin.right,
-                            height = 400 - margin.top - margin.bottom;
-
-                        var height = 20 * data.length
-
-                        // append the svg object to the body of the page
-                        var svg = d3.select("#git_commits_bar_chart")
-                            .append("svg")
-                            .attr("width", width + margin.left + margin.right)
-                            .attr("height", height + margin.top + margin.bottom)
-                            .append("g")
-                            .attr("transform",
-                                "translate(" + margin.left + "," + margin.top + ")");
-
-                        // Parse the Data
-
-                        // Add X axis
-                        var x = d3.scaleLinear()
-                            .domain([0, d3.max(data, function (d) { return d.commits; })])
-                            .range([0, width]);
-                        svg.append("g")
-                            .attr("transform", "translate(0," + height + ")")
-                            .call(d3.axisBottom(x))
-                            .selectAll("text")
-                            .attr("transform", "translate(-10,0)")
-                            .style("text-anchor", "end");
-
-                        // Y axis
-                        var y = d3.scaleBand()
-                            .range([0, height])
-                            .domain(data.map(function (d) { return d.author; }))
-                            .padding(.1);
-                        svg.append("g")
-                            .attr("class", "y_axis")
-                            .call(d3.axisLeft(y))
-
-                        //Bars
-                        svg.selectAll("myRect")
-                            .data(data)
-                            .enter()
-                            .append("rect")
-                            .attr("x", x(0))
-                            .attr("y", function (d) { return y(d.author); })
-                            .attr("width", function (d) { return x(d.commits); })
-                            .attr("height", y.bandwidth())
-                            .attr("fill", "#1f38b4")
-
-
-
-                    });
-                }
-            </script>
+            <div id="middle" class="middle">
+                <div class="commit_count" id="git_commits_bar_chart"></div>
+                <div class="pie_chart" id="pie_chart">
+                </div>
+            </div>
     </section>
 </body>
+<script>
+    var i = 0;
+    var txt = 'Github Visualiser'; /* The text */
+    var speed = 100; /* The speed/duration of the effect in milliseconds */
+
+    function typeWriter() {
+        if (i < txt.length) {
+            document.getElementById("page_title").innerHTML += txt.charAt(i);
+            i++;
+            setTimeout(typeWriter, speed);
+        }
+    }
+
+</script>
 
 </html>
